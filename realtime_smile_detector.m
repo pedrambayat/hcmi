@@ -1,9 +1,11 @@
-function realtime_smile_detector()
+function result = realtime_smile_detector()
+    % Returns: 'Approve' if majority smiling, 'Disapprove' if majority frowning
+    
     % Setup Python environment
     fprintf('Setting up Python environment...\n');
     pe = pyenv;
     if pe.Status == "NotLoaded"
-        pyenv('Version', '/Library/Developer/CommandLineTools/usr/bin/python3');  % Or specify full path to your python
+        pyenv('Version', '/Library/Developer/CommandLineTools/usr/bin/python3');
     end
     
     % Add current directory to Python path
@@ -20,7 +22,7 @@ function realtime_smile_detector()
         error('Failed to load model: %s', ME.message);
     end
     
-    %%Setup webcam
+    %% Setup webcam
     fprintf('Initializing webcam...\n');
     cam = webcam;
     fprintf('Webcam initialized: %s\n', cam.Name);
@@ -33,50 +35,48 @@ function realtime_smile_detector()
     % Setup face detector
     faceDetector = vision.CascadeObjectDetector('MinSize', [100 100]);
     
-    %% Setup DAQ (uncomment and modify for your hardware)
-    % fprintf('Setting up DAQ...\n');
-    % daqDevice = daq("ni");
-    % addoutput(daqDevice, "Dev1", "ao0", "Voltage");
-    % fprintf('DAQ ready\n\n');
-    
     % Setup figure for display
-    hFig = figure('Name', 'Real-Time Smile/Frown Detector', ...
+    hFig = figure('Name', 'Real-Time Smile/Frown Detector - Press SPACE or close window to finish', ...
                   'NumberTitle', 'off', ...
                   'WindowState', 'maximized', ...
+                  'KeyPressFcn', @keyPressCallback, ...
                   'CloseRequestFcn', @closeFigure);
     
     % Create axes for video display with proper aspect ratio
-    hAx = axes('Parent', hFig, 'Position', [0.05 0.15 0.9 0.8]);
-    axis(hAx, 'image');  % This maintains aspect ratio
-    hImg = imshow(testFrame, 'Parent', hAx);  % Use actual frame size
+    hAx = axes('Parent', hFig, 'Position', [0.05 0.25 0.9 0.7]);
+    axis(hAx, 'image');
+    hImg = imshow(testFrame, 'Parent', hAx);
     set(hAx, 'Units', 'normalized');
     
     % Create text display for stats
-    hText = annotation('textbox', [0.05 0.01 0.9 0.1], ...
+    hText = annotation('textbox', [0.05 0.01 0.9 0.2], ...
                       'String', 'Initializing...', ...
                       'FontSize', 14, ...
                       'EdgeColor', 'none', ...
                       'HorizontalAlignment', 'center', ...
                       'FontWeight', 'bold');
     
+    % Arrays to store predictions
+    predictionResults = {};  % Cell array to store all predictions
+    captureInterval = 1.0;   % Capture every 1 second
+    lastCaptureTime = tic;
+    
     % Performance tracking
     frameCount = 0;
     startTime = tic;
-    fpsWindow = zeros(30, 1);  % Rolling window for FPS calculation
-    fpsIdx = 1;
+    captureCount = 0;
     
     % Main loop
-    fprintf('Starting real-time detection...\n');
-    fprintf('Press Ctrl+C or close the figure to stop.\n\n');
-    fprintf('%-10s | %-10s | %-12s | %-8s | %-15s\n', ...
-            'Frame', 'FPS', 'Prediction', 'Conf.', 'Probs [F, S]');
-    fprintf('%s\n', repmat('-', 1, 75));
+    fprintf('\n=== Starting Smile/Frown Assessment ===\n');
+    fprintf('Recording one sample per second...\n');
+    fprintf('Press SPACEBAR or close window when done.\n\n');
+    fprintf('%-10s | %-12s | %-10s | %-15s\n', ...
+            'Sample #', 'Prediction', 'Conf.', 'Running Count');
+    fprintf('%s\n', repmat('-', 1, 60));
     
     stopFlag = false;
     
     while ishandle(hFig) && ~stopFlag
-        frameStart = tic;
-        
         try
             % Capture frame from webcam
             frame = snapshot(cam);
@@ -84,14 +84,17 @@ function realtime_smile_detector()
             % Detect faces
             bboxes = faceDetector(frame);
             
-            predictionText = 'No face detected';
-            daqSignal = 0;  % Neutral signal when no face
+            predictionText = 'Waiting for face...';
+            currentPrediction = '';
             
-            if ~isempty(bboxes)
-                % Use the largest face (first one is usually largest)
+            % Check if it's time to capture and analyze
+            shouldCapture = toc(lastCaptureTime) >= captureInterval;
+            
+            if ~isempty(bboxes) && shouldCapture
+                % Use the largest face
                 bbox = bboxes(1, :);
                 
-                % Expand bbox slightly for better context (optional)
+                % Expand bbox slightly
                 expandRatio = 0.1;
                 bbox = expandBBox(bbox, size(frame), expandRatio);
                 
@@ -106,65 +109,76 @@ function realtime_smile_detector()
                 
                 % Run PyTorch inference
                 np_face = py.numpy.array(face);
-                result = py.pytorch_matlab_wrapper.predict(np_face);
+                result_dict = py.pytorch_matlab_wrapper.predict(np_face);
                 
                 % Extract results
-                label = char(result{'label'});
-                confidence = double(result{'confidence'});
-                probs = double(result{'probabilities'});
+                label = char(result_dict{'label'});
+                confidence = double(result_dict{'confidence'});
+                probs = double(result_dict{'probabilities'});
                 
-                % Prepare display text
-                predictionText = sprintf('%s: %.1f%%\n[Frown: %.2f | Smile: %.2f]', ...
-                                       upper(label), confidence*100, probs(1), probs(2));
+                % Store the prediction
+                predictionResults{end+1} = struct('label', label, ...
+                                                  'confidence', confidence, ...
+                                                  'timestamp', toc(startTime));
+                captureCount = captureCount + 1;
                 
-                % Determine DAQ signal based on prediction
-                if strcmp(label, 'smile')
-                    daqSignal = 5.0;  % High signal for smile
-                    boxColor = [0 255 0];  % Green
+                % Count current results
+                smileCount = sum(cellfun(@(x) strcmp(x.label, 'smile'), predictionResults));
+                frownCount = sum(cellfun(@(x) strcmp(x.label, 'frown'), predictionResults));
+                
+                % Console output
+                fprintf('%-10d | %-12s | %-10.2f | Smile: %d, Frown: %d\n', ...
+                        captureCount, upper(label), confidence, smileCount, frownCount);
+                
+                currentPrediction = label;
+                
+                % Reset capture timer
+                lastCaptureTime = tic;
+            end
+            
+            % Visualize current frame
+            if ~isempty(bboxes)
+                bbox = bboxes(1, :);
+                expandRatio = 0.1;
+                bbox = expandBBox(bbox, size(frame), expandRatio);
+                
+                % Color based on last capture if available
+                if ~isempty(currentPrediction)
+                    if strcmp(currentPrediction, 'smile')
+                        boxColor = [0 255 0];  % Green
+                    else
+                        boxColor = [255 0 0];  % Red
+                    end
                 else
-                    daqSignal = 0.5;  % Low signal for frown
-                    boxColor = [255 0 0];  % Red
+                    boxColor = [255 255 0];  % Yellow (waiting)
                 end
                 
-                % Send signal to DAQ
-                % write(daqDevice, daqSignal);
-                
-                % Draw bounding box and label on frame
                 frame = insertShape(frame, 'Rectangle', bbox, ...
                                    'Color', boxColor, 'LineWidth', 3);
-                frame = insertText(frame, [bbox(1), bbox(2)-10], ...
-                                  sprintf('%s %.1f%%', upper(label), confidence*100), ...
-                                  'FontSize', 18, 'BoxColor', boxColor, ...
-                                  'BoxOpacity', 0.7, 'TextColor', 'white');
-                
-                % Console output (every 10 frames to avoid clutter)
-                if mod(frameCount, 10) == 0
-                    fprintf('%-10d | %-10.1f | %-12s | %-8.2f | [%.2f, %.2f]\n', ...
-                            frameCount, 1/mean(fpsWindow), label, confidence, probs(1), probs(2));
-                end
-            else
-                % No face detected - send neutral signal
-                % write(daqDevice, daqSignal);
             end
             
             % Update display
             set(hImg, 'CData', frame);
             
-            % Calculate FPS
-            frameTime = toc(frameStart);
-            fpsWindow(fpsIdx) = frameTime;
-            fpsIdx = mod(fpsIdx, 30) + 1;
-            avgFPS = 1 / mean(fpsWindow);
+            % Calculate current counts
+            smileCount = sum(cellfun(@(x) strcmp(x.label, 'smile'), predictionResults));
+            frownCount = sum(cellfun(@(x) strcmp(x.label, 'frown'), predictionResults));
+            
+            % Time until next capture
+            timeToNext = max(0, captureInterval - toc(lastCaptureTime));
             
             % Update stats text
             elapsedTime = toc(startTime);
-            statsText = sprintf(['Frame: %d | FPS: %.1f | Elapsed: %.1fs\n' ...
-                               'DAQ Signal: %.2fV\n\n%s'], ...
-                               frameCount, avgFPS, elapsedTime, daqSignal, predictionText);
+            statsText = sprintf(['Samples Captured: %d | Elapsed: %.1fs | Next capture in: %.1fs\n\n' ...
+                               'SMILE: %d samples (%.1f%%)\n' ...
+                               'FROWN: %d samples (%.1f%%)\n\n' ...
+                               'Press SPACEBAR or close window to finish'], ...
+                               captureCount, elapsedTime, timeToNext, ...
+                               smileCount, (smileCount/(captureCount+eps))*100, ...
+                               frownCount, (frownCount/(captureCount+eps))*100);
             set(hText, 'String', statsText);
             
-            drawnow limitrate;  % Limit redraw rate for performance
-            
+            drawnow limitrate;
             frameCount = frameCount + 1;
             
         catch ME
@@ -174,21 +188,51 @@ function realtime_smile_detector()
     end
     
     % Cleanup
-    fprintf('\n\nStopping detection...\n');
+    fprintf('\n\nAssessment Complete\n');
     clear cam;
-    % if exist('daqDevice', 'var')
-    %     stop(daqDevice);
-    %     clear daqDevice;
-    % end
     if ishandle(hFig)
         close(hFig);
     end
-    fprintf('Cleanup complete. Total frames processed: %d\n', frameCount);
     
-    % Nested function for figure close callback
+    % Analyze results
+    if isempty(predictionResults)
+        fprintf('No samples captured. Cannot make determination.\n');
+        result = 'Insufficient Data';
+        return;
+    end
+    
+    % Count smiles and frowns
+    smileCount = sum(cellfun(@(x) strcmp(x.label, 'smile'), predictionResults));
+    frownCount = sum(cellfun(@(x) strcmp(x.label, 'frown'), predictionResults));
+    totalSamples = length(predictionResults);
+    
+    fprintf('\nTotal samples: %d\n', totalSamples);
+    fprintf('Smiles: %d (%.1f%%)\n', smileCount, (smileCount/totalSamples)*100);
+    fprintf('Frowns: %d (%.1f%%)\n', frownCount, (frownCount/totalSamples)*100);
+    
+    % Determine final result
+    if smileCount > frownCount
+        result = 'Approve';
+        fprintf('\n*** RESULT: APPROVE ***\n');
+    elseif frownCount > smileCount
+        result = 'Disapprove';
+        fprintf('\n*** RESULT: DISAPPROVE ***\n');
+    else
+        result = 'Tie';
+        fprintf('\n*** RESULT: TIE (Equal smiles and frowns) ***\n');
+    end
+    
+    fprintf('\nReturning: %s\n', result);
+    
+    % Nested functions
     function closeFigure(~, ~)
         stopFlag = true;
-        delete(hFig);
+    end
+    
+    function keyPressCallback(~, event)
+        if strcmp(event.Key, 'space')
+            stopFlag = true;
+        end
     end
 end
 
