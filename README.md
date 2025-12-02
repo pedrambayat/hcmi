@@ -1,4 +1,4 @@
-# Human-Cockroach Machine Interface: Facial Expression Classification Model
+# Cross-Platform Facial Expression Inference for Cockrack-Machine Interface
 
 The following MATLAB packages are required:
 - Computer Vision Toolbox
