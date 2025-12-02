@@ -1,4 +1,4 @@
-# Cross-Platform Facial Expression Inference for Cockrack-Machine Interface
+# Dual-Platform Facial Expression Inference for Cockroach-Machine Interface
 
 The following MATLAB packages are required:
 - Computer Vision Toolbox
