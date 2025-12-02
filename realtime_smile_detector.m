@@ -5,7 +5,7 @@ function result = realtime_smile_detector()
     fprintf('Setting up Python environment...\n');
     pe = pyenv;
     if pe.Status == "NotLoaded"
-        pyenv('Version', '/Library/Developer/CommandLineTools/usr/bin/python3');
+        pyenv('Version', 'C:\Users\BELab\AppData\Local\Programs\Python\Python314\python.exe');
     end
     
     % Add current directory to Python path
@@ -22,7 +22,7 @@ function result = realtime_smile_detector()
         error('Failed to load model: %s', ME.message);
     end
     
-    %% Setup webcam
+    % Setup webcam
     fprintf('Initializing webcam...\n');
     cam = webcam;
     fprintf('Webcam initialized: %s\n', cam.Name);
@@ -178,7 +178,7 @@ function result = realtime_smile_detector()
                                frownCount, (frownCount/(captureCount+eps))*100);
             set(hText, 'String', statsText);
             
-            drawnow limitrate;
+            drawnow;
             frameCount = frameCount + 1;
             
         catch ME
@@ -191,7 +191,7 @@ function result = realtime_smile_detector()
     fprintf('\n\nAssessment Complete\n');
     clear cam;
     if ishandle(hFig)
-        close(hFig);
+        delete(hFig);
     end
     
     % Analyze results
@@ -213,13 +213,13 @@ function result = realtime_smile_detector()
     % Determine final result
     if smileCount > frownCount
         result = 'Approve';
-        fprintf('\n*** RESULT: APPROVE ***\n');
+        fprintf('\nRESULT: APPROVE\n');
     elseif frownCount > smileCount
         result = 'Disapprove';
-        fprintf('\n*** RESULT: DISAPPROVE ***\n');
+        fprintf('\nRESULT: DISAPPROVE\n');
     else
         result = 'Tie';
-        fprintf('\n*** RESULT: TIE (Equal smiles and frowns) ***\n');
+        fprintf('\nRESULT: TIE (Equal smiles and frowns)\n');
     end
     
     fprintf('\nReturning: %s\n', result);
@@ -227,6 +227,8 @@ function result = realtime_smile_detector()
     % Nested functions
     function closeFigure(~, ~)
         stopFlag = true;
+        delete(hFig);
+
     end
     
     function keyPressCallback(~, event)
