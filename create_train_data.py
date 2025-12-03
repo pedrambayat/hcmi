@@ -3,31 +3,32 @@ import os
 import math
 
 class CreateTrainData:
-    def __init__(self, video_path, train_frames=300, test_frames=50,
+    def __init__(self, video_path, label, train_frames=300, test_frames=50,
                  train_folder="train", test_folder="test"):
         """
         video_path: full path to input video
+        label: subfolder name ('smile' or 'frown')
         train_frames: number of frames to extract for training
         test_frames: number of frames to extract for testing
         train_folder: folder to save training frames
         test_folder: folder to save testing frames
         """
         self.video_path = video_path
+        self.label = label
         self.train_frames = train_frames
         self.test_frames = test_frames
-        self.train_folder = train_folder
-        self.test_folder = test_folder
+        self.train_folder = os.path.join(train_folder, label)
+        self.test_folder = os.path.join(test_folder, label)
 
-        # create folders if they don't exist
+        # Create folders if they don't exist
         os.makedirs(self.train_folder, exist_ok=True)
         os.makedirs(self.test_folder, exist_ok=True)
 
-        # get total frames in video
+        # Get total frames in video
         self.total_frames = self.get_total_frames()
         print(f"Total frames in video: {self.total_frames}")
 
     def get_total_frames(self):
-        # get total number of frames with ffprobe
         cmd = [
             "ffprobe", "-v", "error", "-count_frames",
             "-select_streams", "v:0",
@@ -50,7 +51,6 @@ class CreateTrainData:
         subprocess.run(cmd)
 
     def run(self):
-        """Extracts both train and test frames"""
         self.extract_frames(self.train_folder, self.train_frames)
         self.extract_frames(self.test_folder, self.test_frames)
-        print("Done extracting train and test frames!")
+        print(f"Done extracting train and test frames for label '{self.label}'!")
