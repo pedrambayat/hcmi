@@ -24,8 +24,8 @@ test_transform = transforms.Compose([
 ])
 
 # loading datasets
-train_dir = "dataset/dataset_pedram/train"
-test_dir = "dataset/dataset_pedram/test"
+train_dir = "dataset/dataset_forrest/train"
+test_dir = "dataset/dataset_forrest/test"
 
 train_ds = datasets.ImageFolder(train_dir, transform=train_transform)
 test_ds = datasets.ImageFolder(test_dir, transform=test_transform)
@@ -81,7 +81,7 @@ print(f"Class weights: {dict(zip(train_ds.classes, class_weights.cpu().numpy()))
 criterion = FocalLoss(alpha=1.0, gamma=2.0, weight=class_weights)
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.5, patience=3)
-num_epochs = 20  # Increased epochs for better learning
+num_epochs = 4
 
 # train loop with validation monitoring
 best_test_acc = 0.0
@@ -167,63 +167,3 @@ import json
 with open("class_mapping.json", "w") as f:
     json.dump(train_ds.class_to_idx, f)
 print(f"Class mapping saved: {train_ds.class_to_idx}")
-
-# export to ONNX for MATLAB
-try:
-    import onnx
-    import onnxruntime as ort
-    
-    # create dummy input (batch_size=1, channels=3, height=224, width=224)
-    # input should be normalized: (pixel/255 - mean) / std
-    dummy_input = torch.randn(1, 3, 224, 224).to(device)
-    
-    # export to ONNX for MATLAB integration
-    onnx_path = "smile_frown_resnet18.onnx"
-    model.eval()  # ensure model is in eval mode
-    
-    torch.onnx.export(
-        model,                      # model to export
-        dummy_input,                # dummy input tensor
-        onnx_path,                  # output file path
-        export_params=True,         # store trained parameter weights
-        opset_version=11,           # ONNX opset version (compatible with MATLAB)
-        do_constant_folding=True,   # optimize constant folding
-        input_names=['input'],      # input tensor name
-        output_names=['output'],    # output tensor name
-        dynamic_axes={
-            'input': {0: 'batch_size'},   # variable batch size
-            'output': {0: 'batch_size'}   # variable batch size
-        }
-    )
-    
-    print(f"Model exported to ONNX: {onnx_path}")
-    
-    # verify ONNX model
-    onnx_model = onnx.load(onnx_path)
-    onnx.checker.check_model(onnx_model)
-    print("ONNX model verification passed!")
-    
-    # test ONNX model with ONNXRuntime
-    ort_session = ort.InferenceSession(onnx_path)
-    ort_inputs = {ort_session.get_inputs()[0].name: dummy_input.cpu().numpy()}
-    ort_outs = ort_session.run(None, ort_inputs)
-    print(f"ONNX model test successful! Output shape: {ort_outs[0].shape}")
-    
-    # Save preprocessing parameters for MATLAB reference
-    preprocess_info = {
-        "input_size": [224, 224],
-        "mean": [0.485, 0.456, 0.406],
-        "std": [0.229, 0.224, 0.225],
-        "class_mapping": train_ds.class_to_idx,
-        "classes": train_ds.classes
-    }
-    with open("onnx_preprocess_info.json", "w") as f:
-        json.dump(preprocess_info, f, indent=2)
-    print("Preprocessing info saved to onnx_preprocess_info.json")
-    
-except ImportError:
-    print("Warning: ONNX or ONNXRuntime not installed. Skipping ONNX export.")
-    print("Install with: pip install onnx onnxruntime")
-except Exception as e:
-    print(f"Warning: ONNX export failed: {e}")
-    print("You can export later using export_to_onnx.py script")

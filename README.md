@@ -1,5 +1,21 @@
 # Dual-Platform Facial Expression Inference for Cockroach-Machine Interface
 
+Training dataset should be structured as:
+`dataset\ 
+    \dataset_{name}
+        \train
+            \smile
+            \frown
+        \test
+            \smile
+            \frown
+`   
+To train, record a video of a judge smiling and a video of a judge frowning.
+Then, use ffmpeg to extract images. This will quickly create many images that can be used for training.
+
+`ffmpeg -i input.mp4 -vf "select=not(mod(n\,10))" -vframes {num_frames} dataset_{name}/test/smile/test_smile_%04d.jpg`
+
+
 The following MATLAB packages are required:
 - Computer Vision Toolbox
 - Image Processing Toolbox
