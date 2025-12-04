@@ -2,7 +2,7 @@ import os
 import subprocess
 
 class CreateTrainData:
-    def __init__(self, video_path, label, ffmpeg_path=None, ffprobe_path=None,
+    def __init__(self, video_path, label, dataset_name, ffmpeg_path=None, ffprobe_path=None,
                  num_train=300, num_test=50):
 
         self.video_path = video_path
@@ -14,9 +14,11 @@ class CreateTrainData:
         self.ffmpeg = ffmpeg_path or "ffmpeg"
         self.ffprobe = ffprobe_path or "ffprobe"
 
+        self.base_dir = os.path.join("dataset", dataset_name)
+
         # Output directories
-        self.train_dir = os.path.join("dataset", "train", label)
-        self.test_dir = os.path.join("dataset", "test", label)
+        self.train_dir = os.path.join(self.base_dir, "train", label)
+        self.test_dir = os.path.join(self.base_dir, "test", label)
 
         os.makedirs(self.train_dir, exist_ok=True)
         os.makedirs(self.test_dir, exist_ok=True)

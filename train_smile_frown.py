@@ -24,8 +24,9 @@ test_transform = transforms.Compose([
 ])
 
 # loading datasets
-train_dir = "dataset/dataset_forrest/train"
-test_dir = "dataset/dataset_forrest/test"
+name = "patterson"
+train_dir = f"dataset/dataset_{name}/train"
+test_dir = f"dataset/dataset_{name}/test"
 
 train_ds = datasets.ImageFolder(train_dir, transform=train_transform)
 test_ds = datasets.ImageFolder(test_dir, transform=test_transform)
@@ -81,7 +82,7 @@ print(f"Class weights: {dict(zip(train_ds.classes, class_weights.cpu().numpy()))
 criterion = FocalLoss(alpha=1.0, gamma=2.0, weight=class_weights)
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.5, patience=3)
-num_epochs = 4
+num_epochs = 6
 
 # train loop with validation monitoring
 best_test_acc = 0.0
@@ -159,8 +160,8 @@ for i, class_name in enumerate(test_ds.classes):
         print(f"  {class_name}: No samples")
 
 # save model
-torch.save(model.state_dict(), "smile_frown_resnet18.pth")
-print("Model saved as smile_frown_resnet18.pth")
+torch.save(model.state_dict(), f"models/model_{name}.pth")
+print(f"Model saved as model_{name}.pth")
 
 # save class mapping for reference
 import json

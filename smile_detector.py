@@ -7,7 +7,7 @@ from PIL import Image
 import time
 
 class SmileDetector:
-    def __init__(self, model_path='smile_frown_resnet18.pth', class_mapping_path='class_mapping.json'):
+    def __init__(self, model_path='model/model_patterson.pth', class_mapping_path='class_mapping.json'):
         """Initialize the smile detector with PyTorch model."""
         print('Loading PyTorch model...')
         

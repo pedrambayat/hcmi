@@ -10,6 +10,6 @@ function calibrate_emg(src, ~)
     integral = trapz(timestamps, abs(clean_data));
     
     % display results
-    plot(timestamps, integral);
+    % plot(timestamps, integral);
     fprintf('Integral = %.3f\n', integral);
 end
