@@ -1,4 +1,4 @@
-function calibration(src, ~)
+function calibrate_emg(src, ~)
     % read in data
     [raw_data, timestamps, ~] = read(src, src.ScansAvailableFcnCount, 'OutputFormat', 'Matrix');
 

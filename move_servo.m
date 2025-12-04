@@ -6,8 +6,10 @@ function move_servo(src, ~, fast_step, med_step, slow_step, pwm_start, pwm_stop,
         dir = -1; 
 
         % set up PWM signal
-        pwm = src.Channels(2); % need to change after adding other channels
+        % pwm = src.Channels(2); % need to change after adding other channels
     end
+
+    pwm = src.Channels(strcmp({src.Channels.ID}, 'ctr0'));
     
     %%% COMPUTE INTEGRAL %%%
     % read in data

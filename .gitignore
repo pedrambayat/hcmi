@@ -1,2 +1,5 @@
 # ignore training data
 dataset/
+
+# ffmpeg
+ffmpeg-8.0.1-full_build/

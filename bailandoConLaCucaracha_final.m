@@ -21,7 +21,7 @@ dq.ScansAvailableFcnCount = 250; % 8 readings per second
 % initialize input channels
 addinput(dq, 'myDAQ1', 'ai0', 'Voltage'); % emg
 
-% initialize output channels
+% initialize output channels for servo
 pwm = addoutput(dq,'myDAQ1', 'ctr0', 'PulseGeneration');
 
 % set up PWM signal
@@ -30,8 +30,15 @@ pwm.InitialDelay = 0;
 pwm.DutyCycle = 0.1;
 
 %%% CALIBRATE %%%
-dq.ScansAvailableFcn = @(src,evt) calibration(src, evt);
+dq.ScansAvailableFcn = @(src,evt) calibrate_emg(src, evt);
 start(dq, 'Duration', seconds(20));
+
+tic
+while toc < 20
+    pause(1);
+end
+
+stop(dq);
 
 %%%  START DANCING! %%%
 % set up data acquisition
@@ -47,20 +54,3 @@ p.StopFcn = @(src,evt) stop(dq);
 % start acquiring data from the emg
 start(dq, 'Continuous');
 play(p); 
-
-%%% INITIALIZE ROACH/LED VARIABLES %%%
-% cockroach leg
-f_ext = 1000;
-f_flex = 250;
-A_ext = 0.5;
-A_flex = 0.5;
-
-dq.Rate = 6000; % max f for roach = 5KHz
-n = dq.Rate * 5; % i.e. duration of signal = 5s
-
-% initialize output channels
-addoutput(dq, 'myDAQ1', 'ao0', 'Voltage'); % cockroach leg
-addoutput(dq, 'myDAQ1', 'port0/line0', 'Digital'); % green LEDs
-addoutput(dq, 'myDAQ1', 'port0/line1', 'Digital'); % red LEDs
-
-move_leg(dq, n, f_ext, f_flex, A_ext, A_flex)
